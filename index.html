@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雙北土地實價圖台 | ZN Studio</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0f1a;--card:#111827;--card2:#1a2332;
+  --border:rgba(99,179,237,.15);--accent:#63b3ed;--glow:rgba(99,179,237,.25);
+  --t1:#e8edf5;--t2:#94a3b8;--t3:#64748b;
+  --z-res:#63b3ed;--z-com:#f6ad55;--z-ind:#a0aec0;--z-agr:#68d391;--z-pub:#fc8181;--z-oth:#b794f4;
+}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t1);height:100vh;overflow:hidden;}
+.app{display:grid;grid-template-columns:360px 1fr;grid-template-rows:auto 1fr;height:100vh;}
+
+.hdr{grid-column:1/-1;background:linear-gradient(135deg,#1a365d,#0d1b2a);
+ border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.hdr .left{display:flex;align-items:center;gap:12px;min-width:0;}
+.hdr .logo{width:34px;height:34px;flex:none;background:linear-gradient(135deg,var(--accent),#4299e1);
+ border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;
+ box-shadow:0 4px 16px var(--glow);}
+.hdr h1{font-size:15px;font-weight:600;}
+.hdr .sub{font-size:11px;color:var(--t2);}
+.hdr .right{font-size:10.5px;color:var(--t3);text-align:right;line-height:1.5;}
+.hdr .right a{color:var(--accent);text-decoration:none;}
+
+.side{background:var(--card);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sec{padding:13px 14px;border-bottom:1px solid var(--border);}
+.sec h3{font-size:10.5px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:1.4px;margin-bottom:9px;}
+
+.citybtns{display:flex;gap:6px;margin-bottom:9px;}
+.cbtn{flex:1;padding:7px 0;font-size:12px;text-align:center;border-radius:7px;cursor:pointer;
+ background:var(--bg);border:1px solid var(--border);color:var(--t2);transition:.15s;font-family:inherit;}
+.cbtn:hover{border-color:var(--accent);}
+.cbtn.on{background:rgba(99,179,237,.18);border-color:var(--accent);color:var(--accent);font-weight:700;}
+.cbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+select,.search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;
+ padding:8px 11px;color:var(--t1);font-size:13px;outline:none;font-family:inherit;}
+select:focus,.search input:focus{border-color:var(--accent);}
+.search{margin-top:7px;}
+
+.price{background:linear-gradient(135deg,rgba(99,179,237,.10),rgba(99,179,237,.03));
+ border:1px solid var(--border);border-radius:10px;padding:13px;}
+.price .lab{font-size:10.5px;color:var(--t3);letter-spacing:.5px;}
+.price .band{display:flex;align-items:baseline;gap:6px;margin:5px 0 3px;}
+.price .mid{font-size:27px;font-weight:700;color:var(--accent);line-height:1;}
+.price .unit{font-size:11.5px;color:var(--t2);}
+.price .rng{font-size:11.5px;color:var(--t2);}
+.price .n{font-size:10.5px;color:var(--t3);margin-top:7px;padding-top:7px;border-top:1px solid var(--border);line-height:1.55;}
+
+.mixbar{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
+.mixbar div{min-width:2px;}
+.mixleg{display:flex;flex-wrap:wrap;gap:5px 11px;font-size:11px;color:var(--t2);}
+.mixleg span{display:flex;align-items:center;gap:5px;}
+.mixleg i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px;text-align:center;}
+.stat .v{font-size:20px;font-weight:700;}
+.stat .l{font-size:10px;color:var(--t3);margin-top:2px;}
+
+.warn{background:rgba(252,129,129,.10);border:1px solid rgba(252,129,129,.32);border-radius:8px;
+ padding:10px 12px;font-size:11.5px;line-height:1.62;color:#f8b4b4;}
+.warn b{color:#fc8181;}
+.info{background:rgba(236,201,75,.10);border:1px solid rgba(236,201,75,.30);border-radius:8px;
+ padding:10px 12px;font-size:11.5px;line-height:1.62;color:#f0d98a;}
+
+.cards{flex:1;overflow-y:auto;min-height:120px;}
+.card{padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:.15s;}
+.card:hover,.card:focus-visible{background:var(--card2);outline:none;}
+.card .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.card .addr{font-size:13px;font-weight:500;flex:1;min-width:0;}
+.card .pr{font-size:14px;font-weight:700;white-space:nowrap;color:var(--accent);}
+.card .meta{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.card .tag{background:rgba(148,163,184,.10);border:1px solid rgba(148,163,184,.16);
+ border-radius:4px;padding:1px 7px;font-size:10px;color:var(--t2);}
+.card .tag.pub{background:rgba(252,129,129,.12);border-color:rgba(252,129,129,.3);color:#fc8181;}
+
+.map-wrap{position:relative;}
+#map{width:100%;height:100%;background:#0d1522;}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+ background:rgba(10,15,26,.88);z-index:900;padding:26px;}
+.overlay.hide{display:none;}
+.ov-box{max-width:440px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px 26px;text-align:center;}
+.ov-box h4{font-size:15px;margin-bottom:9px;color:var(--accent);}
+.ov-box p{font-size:12.5px;color:var(--t2);line-height:1.72;}
+.ov-box code{background:var(--bg);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-size:11.5px;}
+
+.legend{position:absolute;bottom:18px;left:18px;background:var(--card);border:1px solid var(--border);
+ border-radius:10px;padding:11px 15px;z-index:800;font-size:11px;}
+.legend h5{color:var(--t2);margin-bottom:7px;font-size:10px;text-transform:uppercase;letter-spacing:1px;}
+.legend .li{display:flex;align-items:center;gap:8px;margin:3px 0;}
+.legend .ci{width:11px;height:11px;border-radius:50%;}
+
+.foot{padding:9px 14px;background:var(--bg);border-top:1px solid var(--border);
+ font-size:10px;color:var(--t3);line-height:1.6;}
+.foot a{color:var(--accent);text-decoration:none;}
+.foot .disc{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);
+ font-size:9.5px;color:#55606f;text-align:left;line-height:1.6;}
+
+.leaflet-popup-content-wrapper{background:var(--card)!important;color:var(--t1)!important;
+ border:1px solid var(--border)!important;border-radius:10px!important;}
+.leaflet-popup-tip{background:var(--card)!important;}
+.pop-title{font-weight:600;font-size:13.5px;margin-bottom:7px;color:var(--accent);}
+.pop-row{display:flex;justify-content:space-between;gap:14px;padding:3px 0;font-size:12px;
+ border-bottom:1px solid rgba(255,255,255,.05);}
+.pop-lbl{color:var(--t3);}
+
+@media(max-width:860px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 46vh 1fr;}
+  .side{order:3;}.hdr .right{display:none;}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="hdr">
+    <div class="left">
+      <div class="logo">ZN</div>
+      <div>
+        <h1>雙北土地實價圖台</h1>
+        <div class="sub">臺北市・新北市｜內政部實價登錄</div>
+      </div>
+    </div>
+    <div class="right">
+      ZN Studio・Nick Chang<br>
+      <a href="https://portaly.cc/zn.studio">portaly.cc/zn.studio</a>
+    </div>
+  </header>
+
+  <aside class="side">
+    <div class="sec">
+      <h3>查詢範圍</h3>
+      <div class="citybtns">
+        <button class="cbtn on" data-city="">雙北</button>
+        <button class="cbtn" data-city="臺北市">臺北市</button>
+        <button class="cbtn" data-city="新北市">新北市</button>
+      </div>
+      <select id="dist"><option value="">全部行政區</option></select>
+      <div class="search"><input id="q" type="text" placeholder="搜尋地段、地號或分區"></div>
+    </div>
+
+    <div class="sec">
+      <h3>價格區間　萬元／坪</h3>
+      <div class="price">
+        <div class="lab">可開發素地中位數</div>
+        <div class="band"><span class="mid" id="pMid">—</span><span class="unit">萬／坪</span></div>
+        <div class="rng" id="pRng">尚無資料</div>
+        <div class="n" id="pNote">價格僅採計可開發素地，已排除公設保留地。本數值為公開資料統計，非不動產估價。</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>周邊用地組成</h3>
+      <div class="mixbar" id="mixbar"></div>
+      <div class="mixleg" id="mixleg"></div>
+    </div>
+
+    <div class="sec">
+      <h3>統計</h3>
+      <div class="stats">
+        <div class="stat"><div class="v" id="sTotal">0</div><div class="l">交易筆數</div></div>
+        <div class="stat"><div class="v" id="sDev">0</div><div class="l">可開發素地</div></div>
+      </div>
+      <div id="pubWarn" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="sec">
+      <h3>建蔽率／容積率</h3>
+      <div class="info">此欄位預留給法規對照層。需接入臺北市土地使用分區管制自治條例與新北市都市計畫法施行細則之分區對照表後始能顯示。<b>目前未接入。</b></div>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="foot">
+      資料來源：內政部不動產交易實價查詢服務網<br>
+      <div class="disc">
+        本圖台僅呈現公開資料之彙整結果，不構成不動產估價、投資建議或建築規劃方案。
+        分區、建蔽率、容積率等數值之實際適用，一律以建管及都發主管機關核定為準。
+        本系統不含土地權利狀態（持分、他項權利、租約、占用）查詢，交易前請自行調閱土地登記謄本。
+      </div>
+    </div>
+  </aside>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="overlay" id="ov">
+      <div class="ov-box">
+        <h4 id="ovT">尚未取得座標</h4>
+        <p id="ovP">
+          資料已成功寫入，但地理編碼尚未執行。<br>
+          請在「系統設定」分頁把 <code>Google API Key</code> 換成實際金鑰，
+          再重跑一次爬蟲，點位就會出現在地圖上。
+        </p>
+      </div>
+    </div>
+    <div class="legend">
+      <h5>用地類別</h5>
+      <div class="li"><span class="ci" style="background:#63b3ed"></span>住宅</div>
+      <div class="li"><span class="ci" style="background:#f6ad55"></span>商業</div>
+      <div class="li"><span class="ci" style="background:#a0aec0"></span>工業</div>
+      <div class="li"><span class="ci" style="background:#68d391"></span>農林保育</div>
+      <div class="li"><span class="ci" style="background:#fc8181"></span>公設保留地</div>
+      <div class="li"><span class="ci" style="background:#b794f4"></span>其他</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const API = P.get('api') || 'https://nickleo9.zeabur.app/webhook/land-map-api-dualcity';
+
+const COLOR = {'住宅':'#63b3ed','商業':'#f6ad55','工業':'#a0aec0',
+               '農林保育':'#68d391','公設保留地':'#fc8181','其他':'#b794f4'};
+
+const map = L.map('map',{center:[25.05,121.53],zoom:11,zoomControl:true});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  {maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+const layer = L.layerGroup().addTo(map);
+
+let RAW = [], CITY = '';
+
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function load(){
+  const u = new URL(API);
+  if (CITY) u.searchParams.set('city', CITY);
+  u.searchParams.set('limit','500');
+  setOverlay('讀取中','正在向查詢 API 取得資料…');
+  try{
+    const r = await fetch(u);
+    const d = await r.json();
+    RAW = d.nearby || [];
+    paintPrice(d.priceRange, d.priceNote);
+    paintMix(d.zoneMix || {});
+    render();
+  }catch(e){
+    setOverlay('連線失敗','無法取得資料，請確認查詢 API 是否啟用，或用 <code>?api=</code> 指定端點。');
+  }
+}
+
+function paintPrice(pr, note){
+  if(!pr){ pMid.textContent='—'; pRng.textContent='此範圍無可開發素地樣本'; return; }
+  pMid.textContent = pr['中位'];
+  pRng.textContent = `區間 ${pr['低']} – ${pr['高']}　（樣本 ${pr['樣本數']} 筆）`;
+  if(note) pNote.textContent = note;
+}
+
+function paintMix(mix){
+  const tot = Object.values(mix).reduce((a,b)=>a+b,0) || 1;
+  mixbar.innerHTML=''; mixleg.innerHTML='';
+  Object.entries(mix).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>{
+    const d=document.createElement('div');
+    d.style.cssText=`flex:${v};background:${COLOR[k]||'#b794f4'};`;
+    d.title=`${k} ${v} 筆`;
+    mixbar.appendChild(d);
+    const s=document.createElement('span');
+    s.innerHTML=`<i style="background:${COLOR[k]||'#b794f4'}"></i>${esc(k)} ${Math.round(v/tot*100)}%`;
+    mixleg.appendChild(s);
+  });
+}
+
+function render(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const dv = document.getElementById('dist').value;
+  let rows = RAW;
+  if(dv) rows = rows.filter(r=>r['行政區']===dv);
+  if(q) rows = rows.filter(r=>[r['地段'],r['地號'],r['分區'],r['行政區']]
+        .some(x=>String(x||'').toLowerCase().includes(q)));
+
+  sTotal.textContent = rows.length;
+  const dev = rows.filter(r=>!r['是否公設保留地']);
+  sDev.textContent = dev.length;
+
+  const pubN = rows.length - dev.length;
+  pubWarn.innerHTML = (rows.length && pubN/rows.length >= .5)
+    ? `<div class="warn"><b>注意：</b>此範圍 ${Math.round(pubN/rows.length*100)}% 的土地交易為公共設施保留地（道路、公園等），並非可開發素地。價格區間已排除這些案例。</div>`
+    : '';
+
+  // 行政區選單
+  const ds=[...new Set(RAW.map(r=>r['行政區']).filter(Boolean))].sort();
+  const cur=document.getElementById('dist').value;
+  document.getElementById('dist').innerHTML='<option value="">全部行政區</option>'+
+    ds.map(d=>`<option${d===cur?' selected':''}>${esc(d)}</option>`).join('');
+
+  // 清單
+  cards.innerHTML = rows.length ? rows.map((r,i)=>`
+    <div class="card" tabindex="0" data-i="${i}">
+      <div class="top">
+        <span class="addr">${esc(r['行政區'])} ${esc(r['地段'])} ${esc(r['地號'])}</span>
+        <span class="pr">${esc(r['總價(萬)'])} 萬</span>
+      </div>
+      <div class="meta">
+        <span class="tag">${esc(r['縣市'])}</span>
+        <span class="tag">${esc(r['面積(坪)'])} 坪</span>
+        ${r['單價(萬)-住區單價']?`<span class="tag">${esc(r['單價(萬)-住區單價'])} 萬/坪</span>`:''}
+        <span class="tag${r['是否公設保留地']?' pub':''}">${esc(r['分區']||'無分區資料')}</span>
+      </div>
+    </div>`).join('')
+    : '<div style="padding:16px;color:#7d8b98;font-size:13px;">此範圍無資料</div>';
+
+  // 地圖
+  layer.clearLayers();
+  const pts = rows.filter(r=>parseFloat(r.lat) && parseFloat(r.lng));
+  pts.forEach(r=>{
+    L.circleMarker([+r.lat,+r.lng],{radius:7,color:'#fff',weight:1.5,opacity:.85,
+      fillColor:COLOR[r['類別']]||'#b794f4',fillOpacity:.8})
+     .bindPopup(`<div class="pop-title">${esc(r['行政區'])} ${esc(r['地段'])} ${esc(r['地號'])}</div>
+      <div class="pop-row"><span class="pop-lbl">總價</span><span>${esc(r['總價(萬)'])} 萬</span></div>
+      <div class="pop-row"><span class="pop-lbl">面積</span><span>${esc(r['面積(坪)'])} 坪</span></div>
+      <div class="pop-row"><span class="pop-lbl">單價</span><span>${esc(r['單價(萬)-住區單價']||'—')} 萬/坪</span></div>
+      <div class="pop-row"><span class="pop-lbl">分區</span><span>${esc(r['分區']||'—')}</span></div>
+      <div class="pop-row"><span class="pop-lbl">日期</span><span>${esc(r['日期'])}</span></div>`)
+     .addTo(layer);
+  });
+
+  if(pts.length){
+    ov.classList.add('hide');
+    map.fitBounds(L.latLngBounds(pts.map(r=>[+r.lat,+r.lng])).pad(.15));
+  }else{
+    ov.classList.remove('hide');
+    setOverlay('尚未取得座標',
+      `已載入 ${rows.length} 筆交易，但這些資料還沒有經緯度。<br>
+       請在「系統設定」分頁把 <code>Google API Key</code> 換成實際金鑰，再重跑一次爬蟲。`);
+  }
+}
+
+function setOverlay(t,p){ ovT.textContent=t; ovP.innerHTML=p; ov.classList.remove('hide'); }
+
+document.querySelectorAll('.cbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.cbtn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); CITY=b.dataset.city;
+  document.getElementById('dist').value=''; load();
+}));
+document.getElementById('q').addEventListener('input',render);
+document.getElementById('dist').addEventListener('change',render);
+cards.addEventListener('click',e=>{
+  const c=e.target.closest('.card'); if(!c) return;
+  const r=RAW[+c.dataset.i];
+  if(r && parseFloat(r.lat)) map.setView([+r.lat,+r.lng],17);
+});
+
+load();
+</script>
+</body>
+</html>
